@@ -2,7 +2,9 @@
 # python server.py
 
 import math
+import time
 from datetime import datetime
+from threading import Thread, Lock
 
 import cv2
 import imagezmq
@@ -13,8 +15,8 @@ from utils import get_network_device_ip
 
 frame_dict = {}
 live_clients = {}
-last_liveness_check = datetime.now()
 LIVENESS_CHECK_SECONDS = 5
+MAX_INACTIVITY = 3
 
 
 def display_montage():
@@ -31,7 +33,6 @@ def display_montage():
 
 
 def add_frame_to_frame_dict(frame, host_name):
-    global frame_dict
     frame = imutils.resize(frame, width=500)
 
     cv2.putText(frame, host_name, (10, 25),
@@ -40,16 +41,15 @@ def add_frame_to_frame_dict(frame, host_name):
     frame_dict[host_name] = frame
 
 
-def check_liveness():
-    global last_liveness_check
-    if (datetime.now() - last_liveness_check).seconds > LIVENESS_CHECK_SECONDS:
-        for (host_name, start_time) in list(live_clients.items()):
-            if (datetime.now() - start_time).seconds > LIVENESS_CHECK_SECONDS:
-                print("[INFO] lost connection to {}".format(host_name))
-                live_clients.pop(host_name)
-                frame_dict.pop(host_name)
-
-        last_liveness_check = datetime.now()
+def check_liveness(lock):
+    while True:
+        time.sleep(LIVENESS_CHECK_SECONDS)
+        with lock:
+            for (host_name, start_time) in list(live_clients.items()):
+                if (datetime.now() - start_time).seconds > MAX_INACTIVITY:
+                    print("[INFO] lost connection to {}".format(host_name))
+                    live_clients.pop(host_name)
+                    frame_dict.pop(host_name)
 
 
 def everything():
@@ -57,20 +57,23 @@ def everything():
 
     print("[INFO] Started listening at " + get_network_device_ip() + ":5555")
 
+    lock = Lock()
+    liveness_check_thread = Thread(target=check_liveness, args=(lock,))
+    # daemon threads are terminated after main thread dies
+    liveness_check_thread.daemon = True
+    liveness_check_thread.start()
+
     while True:
         (host_name, frame) = image_hub.recv_image()
         image_hub.send_reply(b'OK')
 
-        if host_name not in live_clients.keys():
-            print("[INFO] receiving data from {}...".format(host_name))
+        with lock:
+            if host_name not in live_clients.keys():
+                print("[INFO] receiving data from {}...".format(host_name))
 
-        live_clients[host_name] = datetime.now()
-
-        add_frame_to_frame_dict(frame, host_name)
-
-        display_montage()
-
-        check_liveness()
+            live_clients[host_name] = datetime.now()
+            add_frame_to_frame_dict(frame, host_name)
+            display_montage()
 
         # if the `q` key was pressed, break from the loop
         key = cv2.waitKey(1) & 0xFF
