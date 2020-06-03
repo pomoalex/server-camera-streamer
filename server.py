@@ -24,12 +24,13 @@ def display_montage():
     frames = list(frame_dict.values())
     count = len(frames)
     if count > 0:
-        # TODO: check h, w
         (h, w) = frames[0].shape[:2]
-        rows = math.ceil(math.sqrt(count))
-        columns = math.floor(math.sqrt(count))
-        montage = build_montages(frames, (w, h), (rows, columns))[0]
+        columns = math.ceil(math.sqrt(count))
+        rows = columns if count > columns * (columns - 1) else columns - 1
+        montage = build_montages(frames, (w, h), (columns, rows))[0]
         cv2.imshow("Remote camera streaming", montage)
+    else:
+        cv2.destroyWindow("Remote camera streaming")
 
 
 def add_frame_to_frame_dict(frame, host_name):
@@ -91,7 +92,7 @@ def serve_streams():
         if key == ord("q"):
             break
 
-    cv2.destroyAllWindows()
+    cv2.destroyWindow("Remote camera streaming")
 
 
 if __name__ == '__main__':
