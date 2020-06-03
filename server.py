@@ -52,16 +52,10 @@ def check_liveness(lock):
                     frame_dict.pop(host_name)
 
 
-def everything():
+def receive_streams(lock):
     image_hub = imagezmq.ImageHub()
 
-    print("[INFO] Started listening at " + get_network_device_ip() + ":5555")
-
-    lock = Lock()
-    liveness_check_thread = Thread(target=check_liveness, args=(lock,))
-    # daemon threads are terminated after main thread dies
-    liveness_check_thread.daemon = True
-    liveness_check_thread.start()
+    print("[INFO] Started listening at " + get_network_device_ip())
 
     while True:
         (host_name, frame) = image_hub.recv_image()
@@ -73,6 +67,23 @@ def everything():
 
             live_clients[host_name] = datetime.now()
             add_frame_to_frame_dict(frame, host_name)
+
+
+def serve_streams():
+    lock = Lock()
+
+    stream_receiver_thread = Thread(target=receive_streams, args=(lock,))
+    # daemon threads are terminated after main thread dies
+    stream_receiver_thread.daemon = True
+    stream_receiver_thread.start()
+
+    liveness_check_thread = Thread(target=check_liveness, args=(lock,))
+    # daemon threads are terminated after main thread dies
+    liveness_check_thread.daemon = True
+    liveness_check_thread.start()
+
+    while True:
+        with lock:
             display_montage()
 
         # if the `q` key was pressed, break from the loop
@@ -80,9 +91,8 @@ def everything():
         if key == ord("q"):
             break
 
-    # do a bit of cleanup
     cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
-    everything()
+    serve_streams()
