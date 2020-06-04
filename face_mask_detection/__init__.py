@@ -1,0 +1,1 @@
+from .face_mask_detector import FaceMaskDetector
