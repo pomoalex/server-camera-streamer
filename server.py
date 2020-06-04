@@ -1,34 +1,25 @@
 # USAGE
 # python server.py
 
-from threading import Lock
-
 import cv2
 from flask import Flask
 from flask import Response
 from flask import render_template
 
-from streaming import StreamerLivenessCheck, StreamReceiver
+from streaming import StreamsHandler
 
 app = Flask(__name__)
-stream_lock = Lock()
-frame_dict = {}
-live_streamers = {}
-stream_receiver_thread = StreamReceiver(stream_lock, frame_dict, live_streamers)
-liveness_check_thread = StreamerLivenessCheck(stream_lock, frame_dict, live_streamers)
+streamsHandler = StreamsHandler()
 
 
 def serve_streams():
     while True:
-        with stream_lock:
-            output_frame = stream_receiver_thread.build_montage()
+        output_frame = streamsHandler.build_montage()
+        (flag, encodedImage) = cv2.imencode(".jpg", output_frame)
 
-            (flag, encodedImage) = cv2.imencode(".jpg", output_frame)
+        if not flag:
+            continue
 
-            if not flag:
-                continue
-
-        # yield the output frame in the byte format
         yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' +
                bytearray(encodedImage) + b'\r\n')
 
@@ -45,7 +36,6 @@ def video_feed():
 
 
 if __name__ == '__main__':
-    stream_receiver_thread.start()
-    liveness_check_thread.start()
+    streamsHandler.start_handling()
     app.run(host='0.0.0.0', port=80, debug=True,
             threaded=True, use_reloader=False)
