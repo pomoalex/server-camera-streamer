@@ -1,10 +1,11 @@
 import socket
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-import cv2
 import imagezmq
-import imutils
+
+from face_mask_detection import FaceMaskDetector
 
 
 class StreamReceiver(threading.Thread):
@@ -15,6 +16,8 @@ class StreamReceiver(threading.Thread):
         self.lock = lock
         self.frame_dict = frame_dict
         self.live_clients = live_clients
+        self.face_mask_detector = FaceMaskDetector()
+        self.executor = ThreadPoolExecutor(8)
 
     def run(self):
         image_hub = imagezmq.ImageHub()
@@ -30,15 +33,12 @@ class StreamReceiver(threading.Thread):
                     print("[INFO] receiving data from {}...".format(host_name))
 
                 self.live_clients[host_name] = datetime.now()
-                self.add_frame_to_frame_dict(frame, host_name)
+                self.executor.submit(self.process_frame, frame, host_name)
 
-    def add_frame_to_frame_dict(self, frame, host_name):
-        frame = imutils.resize(frame, width=500)
-
-        cv2.putText(frame, host_name, (10, 25),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-
-        self.frame_dict[host_name] = frame
+    def process_frame(self, frame, host_name):
+        with self.lock:
+            self.face_mask_detector.detect(frame)
+            self.frame_dict[host_name] = frame
 
 
 def get_network_device_ip():

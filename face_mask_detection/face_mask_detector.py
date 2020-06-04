@@ -42,7 +42,6 @@ class FaceMaskDetector:
 
             face = frame[start_y:start_y + height, start_x:start_x + width]
             output = self.model(self.transformations(face).unsqueeze(0).to(self.device))
-
             prob = nnf.softmax(output, dim=1)
             top_p, top_class = prob.topk(1, dim=1)
 
@@ -63,4 +62,3 @@ class FaceMaskDetector:
                         text,
                         (text_x, start_y - 20),
                         self.font, 0.5, self.label_color[top_class], 2)
-        return frame
