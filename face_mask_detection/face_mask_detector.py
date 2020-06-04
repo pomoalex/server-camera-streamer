@@ -1,4 +1,6 @@
+import cv2
 import torch
+import torch.nn.functional as nnf
 from torchvision.transforms import Compose, Resize, ToPILImage, ToTensor
 
 from face_mask_detection.face_detector import FaceDetector
@@ -7,7 +9,7 @@ from face_mask_detection.face_mask_classifier import Model
 
 class FaceMaskDetector:
     def __init__(self):
-        self.faceDetector = FaceDetector(
+        self.face_detector = FaceDetector(
             prototype='./models/deploy.prototxt.txt',
             model='./models/res10_300x300_ssd_iter_140000.caffemodel',
         )
@@ -27,3 +29,38 @@ class FaceMaskDetector:
             Resize((100, 100)),
             ToTensor(),
         ])
+
+        self.font = cv2.FONT_HERSHEY_SIMPLEX
+        self.labels = ['No mask', 'Mask']
+        self.label_color = [(10, 0, 255), (10, 255, 0)]
+
+    def detect(self, frame):
+        faces_coord = self.face_detector.detect(frame)
+        for coord in faces_coord:
+            start_x, start_y, width, height = coord
+            start_x, start_y = max(start_x, 0), max(start_y, 0)
+
+            face = frame[start_y:start_y + height, start_x:start_x + width]
+            output = self.model(self.transformations(face).unsqueeze(0).to(self.device))
+
+            prob = nnf.softmax(output, dim=1)
+            top_p, top_class = prob.topk(1, dim=1)
+
+            # draw face frame
+            cv2.rectangle(frame,
+                          (start_x, start_y),
+                          (start_x + width, start_y + height),
+                          (126, 65, 64),
+                          thickness=2)
+
+            text = self.labels[top_class] + " ({:.2f}%)".format(top_p.data.tolist()[0][0] * 100)
+
+            text_size = cv2.getTextSize(text, self.font, 0.5, 2)[0]
+            text_x = start_x + width // 2 - text_size[0] // 2
+
+            # draw prediction label
+            cv2.putText(frame,
+                        text,
+                        (text_x, start_y - 20),
+                        self.font, 0.5, self.label_color[top_class], 2)
+        return frame
