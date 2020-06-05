@@ -1,7 +1,7 @@
 import cv2
 import torch
 import torch.nn.functional as nnf
-from torchvision.transforms import Compose, Resize, ToPILImage, ToTensor
+from torchvision.transforms import Compose, Resize, ToPILImage, ToTensor, Normalize
 
 from face_mask_detection.face_detector import FaceDetector
 from face_mask_detection.face_mask_classifier import Model
@@ -16,7 +16,7 @@ class FaceMaskDetector:
         print('[INFO] Loaded face detector model')
 
         self.model = Model()
-        self.model.load_state_dict(torch.load('./models/face_mask.ckpt')['state_dict'], strict=False)
+        self.model.load_state_dict(torch.load('./models/face_mask_detection_model.ckpt')['state_dict'], strict=False)
         print('[INFO] Loaded face mask classifier')
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -28,6 +28,7 @@ class FaceMaskDetector:
             ToPILImage(),
             Resize((100, 100)),
             ToTensor(),
+            Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
 
         self.font = cv2.FONT_HERSHEY_SIMPLEX
