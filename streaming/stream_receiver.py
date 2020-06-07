@@ -3,6 +3,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
+import cv2
 import imagezmq
 
 from face_mask_detection import FaceMaskDetector
@@ -26,6 +27,7 @@ class StreamReceiver(threading.Thread):
 
         while True:
             (host_name, frame) = image_hub.recv_image()
+            frame = cv2.imdecode(frame, 1)
             image_hub.send_reply(b'OK')
 
             with self.lock:
