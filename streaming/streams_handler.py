@@ -30,11 +30,14 @@ class StreamsHandler:
             columns = math.ceil(math.sqrt(count))
             rows = columns if count > columns * (columns - 1) else columns - 1
             montage = build_montages(frames, (w, h), (columns, rows))[0]
-            return montage.copy()
+            return montage
         else:
-            frame = np.zeros(shape=[375, 500, 3], dtype=np.uint8)
-            text = 'No camera available'
-            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)[0]
-            cv2.putText(frame, 'No camera available', ((500 - text_size[0]) // 2, 375 // 2),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            return frame
+            return black_screen('No camera available')
+
+
+def black_screen(text):
+    frame = np.zeros(shape=[375, 500, 3], dtype=np.uint8)
+    text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)[0]
+    cv2.putText(frame, text, ((500 - text_size[0]) // 2, 375 // 2),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    return frame

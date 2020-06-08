@@ -22,7 +22,6 @@ class StreamReceiver(threading.Thread):
 
     def run(self):
         image_hub = imagezmq.ImageHub()
-
         print("[INFO] Started listening at " + get_network_device_ip())
 
         while True:
@@ -32,14 +31,14 @@ class StreamReceiver(threading.Thread):
 
             with self.lock:
                 if host_name not in self.live_clients.keys():
-                    print("[INFO] receiving data from {}...".format(host_name))
+                    print("[INFO] Receiving data from {}...".format(host_name))
 
                 self.live_clients[host_name] = datetime.now()
                 self.executor.submit(self.process_frame, frame, host_name)
 
     def process_frame(self, frame, host_name):
         with self.lock:
-            self.face_mask_detector.detect(frame)
+            self.face_mask_detector.get_annotated_frame(frame)
             self.frame_dict[host_name] = frame
 
 

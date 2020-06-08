@@ -20,6 +20,6 @@ class StreamerLivenessCheck(threading.Thread):
             with self.lock:
                 for (host_name, start_time) in list(self.live_streamers.items()):
                     if (datetime.now() - start_time).seconds > self.MAX_INACTIVITY:
-                        print("[INFO] lost connection to {}".format(host_name))
+                        print("[INFO] Lost connection to {}".format(host_name))
                         self.live_streamers.pop(host_name)
                         self.frame_dict.pop(host_name)
