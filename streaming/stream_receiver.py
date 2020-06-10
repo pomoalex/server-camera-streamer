@@ -1,22 +1,21 @@
 import socket
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 
 import cv2
 import imagezmq
 
 from face_mask_detection import FaceMaskDetector
+from streaming.streamer import Streamer
 
 
 class StreamReceiver(threading.Thread):
 
-    def __init__(self, lock, frame_dict, live_clients):
+    def __init__(self, lock, streamers):
         threading.Thread.__init__(self)
         self.daemon = True
         self.lock = lock
-        self.frame_dict = frame_dict
-        self.live_clients = live_clients
+        self.streamers = streamers
         self.face_mask_detector = FaceMaskDetector()
         self.executor = ThreadPoolExecutor(8)
 
@@ -30,16 +29,23 @@ class StreamReceiver(threading.Thread):
             image_hub.send_reply(b'OK')
 
             with self.lock:
-                if host_name not in self.live_clients.keys():
+                streamer = self.get_streamer(host_name)
+                if streamer is None:
+                    streamer = Streamer(host_name)
+                    self.streamers.append(streamer)
                     print("[INFO] Receiving data from {}...".format(host_name))
 
-                self.live_clients[host_name] = datetime.now()
-                self.executor.submit(self.process_frame, frame, host_name)
+                self.executor.submit(self.process_frame, streamer, frame)
 
-    def process_frame(self, frame, host_name):
+    def process_frame(self, streamer, frame):
         with self.lock:
             self.face_mask_detector.get_annotated_frame(frame)
-            self.frame_dict[host_name] = frame
+            streamer.update_frame(frame)
+
+    def get_streamer(self, host_name):
+        for streamer in self.streamers:
+            if streamer.host_name == host_name:
+                return streamer
 
 
 def get_network_device_ip():

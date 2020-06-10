@@ -12,10 +12,9 @@ from streaming.streamer_liveness_check import StreamerLivenessCheck
 class StreamsHandler:
     def __init__(self):
         self.stream_lock = Lock()
-        self.frame_dict = {}
-        self.live_streamers = {}
-        self.stream_receiver_thread = StreamReceiver(self.stream_lock, self.frame_dict, self.live_streamers)
-        self.liveness_check_thread = StreamerLivenessCheck(self.stream_lock, self.frame_dict, self.live_streamers)
+        self.streamers = []
+        self.stream_receiver_thread = StreamReceiver(self.stream_lock, self.streamers)
+        self.liveness_check_thread = StreamerLivenessCheck(self.stream_lock, self.streamers)
 
     def start_handling(self):
         self.stream_receiver_thread.start()
@@ -23,7 +22,7 @@ class StreamsHandler:
 
     def build_montage(self):
         with self.stream_lock:
-            frames = list(self.frame_dict.values())
+            frames = [streamer.frame for streamer in self.streamers if streamer.frame is not None]
         count = len(frames)
         if count > 0:
             (h, w) = frames[0].shape[:2]
